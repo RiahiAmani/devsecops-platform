@@ -8,16 +8,16 @@ spec:
   containers:
   - name: gitleaks
     image: zricethezav/gitleaks:latest
-    command:
-    - sleep
-    args:
-    - infinity
+    command: [sleep]
+    args: [infinity]
+  - name: sonar-scanner
+    image: sonarsource/sonar-scanner-cli:latest
+    command: [sleep]
+    args: [infinity]
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
-    command:
-    - sleep
-    args:
-    - infinity
+    command: [sleep]
+    args: [infinity]
     volumeMounts:
     - name: docker-config
       mountPath: /kaniko/.docker
@@ -40,7 +40,19 @@ spec:
           '''
         }
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
-        sh 'cat gitleaks-report.json'
+      }
+    }
+    stage('Analyse statique du code (SonarCloud)') {
+      steps {
+        container('sonar-scanner') {
+          withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
+            sh '''
+            sonar-scanner \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.token=${SONAR_TOKEN}
+            '''
+          }
+        }
       }
     }
     stage('Build et push avec Kaniko') {
