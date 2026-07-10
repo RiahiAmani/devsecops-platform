@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 # ATTENTION : secret factice à des fins de démonstration (détection par Gitleaks)
 # Ceci n'est PAS un vrai identifiant AWS - format d'exemple officiel AWS, sans valeur réelle
-AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
+AWS_ACCESS_KEY = "AKIAZ3QX9PLNRT4WBKJH"
 
 @app.route("/")
 def home():
