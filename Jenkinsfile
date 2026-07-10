@@ -42,19 +42,21 @@ spec:
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
       }
     }
-    stage('Analyse statique du code (SonarCloud)') {
-      steps {
-        container('sonar-scanner') {
-          withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
-            sh '''
-            sonar-scanner \
-              -Dsonar.host.url=https://sonarcloud.io \
-              -Dsonar.token=${SONAR_TOKEN}
-            '''
-          }
-        }
+   stage('Analyse statique du code (SonarCloud)') {
+  steps {
+    container('sonar-scanner') {
+      withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
+        sh '''
+        sonar-scanner \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.token=${SONAR_TOKEN} \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.qualitygate.timeout=300
+        '''
       }
     }
+  }
+}
     stage('Build et push avec Kaniko') {
       steps {
         container('kaniko') {
