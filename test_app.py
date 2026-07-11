@@ -1,4 +1,3 @@
-cat > test_app.py << 'EOF'
 from app import app
 
 def test_home():
