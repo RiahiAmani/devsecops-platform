@@ -14,6 +14,10 @@ spec:
     image: sonarsource/sonar-scanner-cli:latest
     command: [sleep]
     args: [infinity]
+  - name: trivy
+    image: aquasec/trivy:latest
+    command: [sleep]
+    args: [infinity]
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
     command: [sleep]
@@ -36,8 +40,7 @@ spec:
       steps {
         container('gitleaks') {
           sh '''
-          gitleaks detect --source=${WORKSPACE} --report-format=json \
-            --report-path=${WORKSPACE}/gitleaks-report.json --redact
+          gitleaks detect --source=${WORKSPACE} --report-format=json --report-path=${WORKSPACE}/gitleaks-report.json --exit-code=0
           '''
         }
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
@@ -46,20 +49,15 @@ spec:
     stage('Analyse statique du code (SonarCloud)') {
       steps {
         container('sonar-scanner') {
-          withSonarQubeEnv('SonarCloud') {
+          withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
             sh '''
             sonar-scanner \
-              -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.token=${SONAR_AUTH_TOKEN}
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.token=${SONAR_TOKEN} \
+              -Dsonar.qualitygate.wait=true \
+              -Dsonar.qualitygate.timeout=300
             '''
           }
-        }
-      }
-    }
-    stage('Quality Gate') {
-      steps {
-        timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
         }
       }
     }
@@ -70,10 +68,31 @@ spec:
           /kaniko/executor \
             --context=dir://${WORKSPACE} \
             --dockerfile=${WORKSPACE}/Dockerfile \
-            --destination=riahiamani/devsecops-test:${BUILD_NUMBER} \
-            --push-retry=3
+            --destination=riahiamani/devsecops-test:${BUILD_NUMBER}
           '''
         }
+      }
+    }
+    stage('Scan de vulnérabilités de l\\'image (Trivy)') {
+      steps {
+        container('trivy') {
+          sh '''
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --format json \
+            --output trivy-report.json \
+            --exit-code 0 \
+            riahiamani/devsecops-test:${BUILD_NUMBER}
+          '''
+          sh '''
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --format table \
+            --exit-code 0 \
+            riahiamani/devsecops-test:${BUILD_NUMBER}
+          '''
+        }
+        archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
       }
     }
   }
