@@ -36,27 +36,33 @@ spec:
       steps {
         container('gitleaks') {
           sh '''
-          gitleaks detect --source=${WORKSPACE} --report-format=json --report-path=${WORKSPACE}/gitleaks-report.json --exit-code=0
+          gitleaks detect --source=${WORKSPACE} --report-format=json \
+            --report-path=${WORKSPACE}/gitleaks-report.json --redact
           '''
         }
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
       }
     }
-   stage('Analyse statique du code (SonarCloud)') {
-  steps {
-    container('sonar-scanner') {
-      withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
-        sh '''
-        sonar-scanner \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.token=${SONAR_TOKEN} \
-          -Dsonar.qualitygate.wait=true \
-          -Dsonar.qualitygate.timeout=300
-        '''
+    stage('Analyse statique du code (SonarCloud)') {
+      steps {
+        container('sonar-scanner') {
+          withSonarQubeEnv('SonarCloud') {
+            sh '''
+            sonar-scanner \
+              -Dsonar.host.url=${SONAR_HOST_URL} \
+              -Dsonar.token=${SONAR_AUTH_TOKEN}
+            '''
+          }
+        }
       }
     }
-  }
-}
+    stage('Quality Gate') {
+      steps {
+        timeout(time: 5, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
     stage('Build et push avec Kaniko') {
       steps {
         container('kaniko') {
@@ -64,7 +70,8 @@ spec:
           /kaniko/executor \
             --context=dir://${WORKSPACE} \
             --dockerfile=${WORKSPACE}/Dockerfile \
-            --destination=riahiamani/devsecops-test:${BUILD_NUMBER}
+            --destination=riahiamani/devsecops-test:${BUILD_NUMBER} \
+            --push-retry=3
           '''
         }
       }
