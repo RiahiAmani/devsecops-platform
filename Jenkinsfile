@@ -10,6 +10,10 @@ spec:
     image: zricethezav/gitleaks:latest
     command: [sleep]
     args: [infinity]
+  - name: python
+    image: python:3.11-slim
+    command: [sleep]
+    args: [infinity]
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli:latest
     command: [sleep]
@@ -46,26 +50,32 @@ spec:
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
       }
     }
-    stage('Analyse statique du code (SonarCloud)') {
-  steps {
-    container('sonar-scanner') {
-      sh '''
-      pip install -r requirements.txt --quiet --break-system-packages
-      pytest --cov=. --cov-report=xml:coverage.xml
-      '''
-      withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
-        sh '''
-        sonar-scanner \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.token=${SONAR_TOKEN} \
-          -Dsonar.python.coverage.reportPaths=coverage.xml \
-          -Dsonar.qualitygate.wait=true \
-          -Dsonar.qualitygate.timeout=300
-        '''
+    stage('Tests unitaires et couverture') {
+      steps {
+        container('python') {
+          sh '''
+          pip install -r requirements.txt --quiet --break-system-packages
+          pytest --cov=. --cov-report=xml:coverage.xml
+          '''
+        }
       }
     }
-  }
-}
+    stage('Analyse statique du code (SonarCloud)') {
+      steps {
+        container('sonar-scanner') {
+          withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
+            sh '''
+            sonar-scanner \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.token=${SONAR_TOKEN} \
+              -Dsonar.python.coverage.reportPaths=coverage.xml \
+              -Dsonar.qualitygate.wait=true \
+              -Dsonar.qualitygate.timeout=300
+            '''
+          }
+        }
+      }
+    }
     stage('Build et push avec Kaniko') {
       steps {
         container('kaniko') {
@@ -82,19 +92,10 @@ spec:
       steps {
         container('trivy') {
           sh '''
-          trivy image \
-            --severity HIGH,CRITICAL \
-            --format json \
-            --output trivy-report.json \
-            --exit-code 0 \
-            riahiamani/devsecops-test:${BUILD_NUMBER}
+          trivy image --severity HIGH,CRITICAL --format json --output trivy-report.json --exit-code 0 riahiamani/devsecops-test:${BUILD_NUMBER}
           '''
           sh '''
-          trivy image \
-            --severity HIGH,CRITICAL \
-            --format table \
-            --exit-code 0 \
-            riahiamani/devsecops-test:${BUILD_NUMBER}
+          trivy image --severity HIGH,CRITICAL --format table --exit-code 0 riahiamani/devsecops-test:${BUILD_NUMBER}
           '''
         }
         archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
