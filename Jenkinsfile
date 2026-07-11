@@ -18,6 +18,10 @@ spec:
     image: sonarsource/sonar-scanner-cli:latest
     command: [sleep]
     args: [infinity]
+  - name: checkov
+    image: bridgecrew/checkov:latest
+    command: [sleep]
+    args: [infinity]
   - name: trivy
     image: aquasec/trivy:latest
     command: [sleep]
@@ -48,6 +52,20 @@ spec:
           '''
         }
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+      }
+    }
+    stage('Analyse infrastructure (Checkov)') {
+      steps {
+        container('checkov') {
+          sh '''
+          checkov --directory ${WORKSPACE} \
+            --framework dockerfile \
+            --output json \
+            --output-file-path ${WORKSPACE}/checkov-report.json \
+            --soft-fail
+          '''
+        }
+        archiveArtifacts artifacts: 'checkov-report.json', allowEmptyArchive: true
       }
     }
     stage('Tests unitaires et couverture') {
@@ -93,9 +111,6 @@ spec:
         container('trivy') {
           sh '''
           trivy image --severity HIGH,CRITICAL --format json --output trivy-report.json --exit-code 0 riahiamani/devsecops-test:${BUILD_NUMBER}
-          '''
-          sh '''
-          trivy image --severity HIGH,CRITICAL --format table --exit-code 0 riahiamani/devsecops-test:${BUILD_NUMBER}
           '''
         }
         archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
