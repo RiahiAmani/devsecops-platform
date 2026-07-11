@@ -14,6 +14,10 @@ spec:
     image: sonarsource/sonar-scanner-cli:latest
     command: [sleep]
     args: [infinity]
+  - name: trivy
+    image: aquasec/trivy:latest
+    command: [sleep]
+    args: [infinity]
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
     command: [sleep]
@@ -49,7 +53,9 @@ spec:
             sh '''
             sonar-scanner \
               -Dsonar.host.url=https://sonarcloud.io \
-              -Dsonar.token=${SONAR_TOKEN}
+              -Dsonar.token=${SONAR_TOKEN} \
+              -Dsonar.qualitygate.wait=true \
+              -Dsonar.qualitygate.timeout=300
             '''
           }
         }
@@ -65,6 +71,28 @@ spec:
             --destination=riahiamani/devsecops-test:${BUILD_NUMBER}
           '''
         }
+      }
+    }
+    stage('Scan de vulnerabilites de l_image Docker (Trivy)') {
+      steps {
+        container('trivy') {
+          sh '''
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --format json \
+            --output trivy-report.json \
+            --exit-code 0 \
+            riahiamani/devsecops-test:${BUILD_NUMBER}
+          '''
+          sh '''
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --format table \
+            --exit-code 0 \
+            riahiamani/devsecops-test:${BUILD_NUMBER}
+          '''
+        }
+        archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
       }
     }
   }
