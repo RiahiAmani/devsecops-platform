@@ -73,7 +73,7 @@ spec:
         }
       }
     }
-    stage('Scan de vulnérabilités de l\\'image (Trivy)') {
+    stage('Scan de vulnerabilites de l_image Docker (Trivy)') {
       steps {
         container('trivy') {
           sh '''
