@@ -47,20 +47,25 @@ spec:
       }
     }
     stage('Analyse statique du code (SonarCloud)') {
-      steps {
-        container('sonar-scanner') {
-          withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
-            sh '''
-            sonar-scanner \
-              -Dsonar.host.url=https://sonarcloud.io \
-              -Dsonar.token=${SONAR_TOKEN} \
-              -Dsonar.qualitygate.wait=true \
-              -Dsonar.qualitygate.timeout=300
-            '''
-          }
-        }
+  steps {
+    container('sonar-scanner') {
+      sh '''
+      pip install -r requirements.txt --quiet --break-system-packages
+      pytest --cov=. --cov-report=xml:coverage.xml
+      '''
+      withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
+        sh '''
+        sonar-scanner \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.token=${SONAR_TOKEN} \
+          -Dsonar.python.coverage.reportPaths=coverage.xml \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.qualitygate.timeout=300
+        '''
       }
     }
+  }
+}
     stage('Build et push avec Kaniko') {
       steps {
         container('kaniko') {
