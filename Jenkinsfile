@@ -106,15 +106,22 @@ spec:
         }
       }
     }
-    stage('Scan de vulnerabilites de l_image Docker (Trivy)') {
-      steps {
-        container('trivy') {
-          sh '''
-          trivy image --severity HIGH,CRITICAL --format json --output trivy-report.json --exit-code 0 riahiamani/devsecops-test:${BUILD_NUMBER}
-          '''
-        }
-        archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
-      }
+   stage('Scan de vulnerabilites de l_image Docker (Trivy)') {
+  steps {
+    container('trivy') {
+      sh '''
+      trivy image \
+        --scanners vuln \
+        --timeout 15m \
+        --severity HIGH,CRITICAL \
+        --format json \
+        --output trivy-report.json \
+        --exit-code 0 \
+        riahiamani/devsecops-test:${BUILD_NUMBER}
+      '''
     }
+    archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+  }
+}
   }
 }
