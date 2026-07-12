@@ -54,20 +54,21 @@ spec:
         archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
       }
     }
-    stage('Analyse infrastructure (Checkov)') {
-      steps {
-        container('checkov') {
-          sh '''
-          checkov --directory ${WORKSPACE} \
-            --framework dockerfile \
-            --output json \
-            --output-file-path ${WORKSPACE}/checkov-report.json \
-            --soft-fail
-          '''
-        }
-        archiveArtifacts artifacts: 'checkov-report.json', allowEmptyArchive: true
-      }
+   stage('Analyse infrastructure (Checkov)') {
+  steps {
+    container('checkov') {
+      sh '''
+      checkov --directory ${WORKSPACE} \
+        --framework dockerfile \
+        --output json \
+        --output-file-path ${WORKSPACE} \
+        --soft-fail
+      '''
     }
+    archiveArtifacts artifacts: 'results_json.json', allowEmptyArchive: true
+    sh 'cat results_json.json'
+  }
+}
     stage('Tests unitaires et couverture') {
       steps {
         container('python') {
