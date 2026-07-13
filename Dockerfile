@@ -3,5 +3,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
+
+RUN useradd --create-home appuser
+USER appuser
+
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import requests; requests.get('http://localhost:5000/status')" || exit 1
+
 CMD ["python", "app.py"]
