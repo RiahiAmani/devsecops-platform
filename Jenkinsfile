@@ -44,6 +44,17 @@ spec:
     }
   }
   stages {
+    stage('TEST - Simulation echec pour alerte Prometheus') {
+      steps {
+        container('python') {
+          sh '''
+          echo "Simulation volontaire d'un echec de build pour tester l'alerte Grafana"
+          exit 1
+          '''
+        }
+      }
+    }
+  stages {
     stage('Analyse des secrets (Gitleaks)') {
       steps {
         container('gitleaks') {
